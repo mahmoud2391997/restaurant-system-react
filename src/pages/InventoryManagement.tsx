@@ -196,8 +196,9 @@ export default function InventoryManagement() {
     menuCategories: selectCategories(state),
     ...selectInventoryPagination(state)
   }))
+console.log(recipes);
 
-  // Recipe form setup
+  // Recipe form selogtup
   const recipeForm = useForm<RecipeFormValues>({
     resolver: zodResolver(recipeFormSchema),
     defaultValues: {
@@ -383,7 +384,22 @@ const handleStockAdjustment = async (values: {
       })
     }
   }
-
+const handleDeleteRecipe = async (id: string) => {
+  try {
+    await dispatch(deleteRecipe(id)).unwrap();
+    toast({
+      title: "Success",
+      description: "Recipe deleted successfully",
+      variant: "default",
+    });
+  } catch (error) {
+    toast({
+      title: "Error",
+      description: "Failed to delete recipe",
+      variant: "destructive",
+    });
+  }
+};
 const handleCreateRecipe = async (data: RecipeFormValues) => {
   try {
     console.log("Creating recipe with data:", data)
@@ -1027,101 +1043,113 @@ const handleCreateRecipe = async (data: RecipeFormValues) => {
           </Card>
         </TabsContent>
 
-        <TabsContent value="recipes">
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Recipes</CardTitle>
-                <Button onClick={() => {
-                  recipeForm.reset()
-                  setIsRecipeFormOpen(true)
-                }}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  New Recipe 
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="space-y-4">
-                  {[...Array(5)].map((_, i) => (
-                    <Skeleton key={i} className="h-12 w-full" />
-                  ))}
-                </div>
-              ) : error ? (
-                <p className="text-red-500">{error}</p>
-              ) : recipes.length === 0 ? (
-                <p className="text-muted-foreground">No recipes found.</p>
-              ) : (
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Menu Item</TableHead>
-                      <TableHead>Category</TableHead>
-                      <TableHead>Ingredients</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-        {recipes.map((recipe) => (
-  <TableRow key={recipe.id}>
-    <TableCell>
-      {menuItems.find(mi => mi.id === recipe.menuItemId)?.name || recipe.menuItemId}
-    </TableCell>
-    <TableCell>{recipe.category}</TableCell>
-    <TableCell>
-      <ul className="list-disc list-inside">
-        {recipe.ingredients.map((ingredient, idx) => {
-          const itemName = items.find(i => i.id === ingredient.inventoryItemId)?.name || ingredient.inventoryItemId;
-          return (
-            <li key={idx}>
-              {itemName}: {ingredient.quantity} {ingredient.unit}
-            </li>
-          );
-        })}
-      </ul>
-    </TableCell>
-    <TableCell>
-      <Badge variant="default">Active</Badge>
-    </TableCell>
-    <TableCell>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-8 w-8 p-0">
-            <span className="sr-only">Open menu</span>
-            <MoreHorizontal className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => {
-            // Prefill form with existing recipe data
-            recipeForm.reset({
-              id: recipe.id,
-              name: recipe.name,
-              description: recipe.description,
-              category: recipe.category,
-              menuItemId: recipe.menuItemId,
-              ingredients: recipe.ingredients,
-            });
-            setIsRecipeFormOpen(true);
-          }}>
-            Edit
-          </DropdownMenuItem>
-          <DropdownMenuItem className="text-red-600">
-            Delete
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </TableCell>
-  </TableRow>
-))}
-                  </TableBody>
-                </Table>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+<TabsContent value="recipes">
+  <Card>
+    <CardHeader>
+      <div className="flex justify-between items-center">
+        <CardTitle>Recipes</CardTitle>
+        <Button onClick={() => {
+          recipeForm.reset()
+          setIsRecipeFormOpen(true)
+        }}>
+          <Plus className="h-4 w-4 mr-2" />
+          New Recipe 
+        </Button>
+      </div>
+    </CardHeader>
+    <CardContent>
+      {loading ? (
+        <div className="space-y-4">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-12 w-full" />
+          ))}
+        </div>
+      ) : error ? (
+        <p className="text-red-500">{error}</p>
+      ) : recipes.length === 0 ? (
+        <p className="text-muted-foreground">No recipes found.</p>
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Name</TableHead>
+              <TableHead>Category</TableHead>
+              <TableHead>Description</TableHead>
+              <TableHead>Ingredients</TableHead>
+              <TableHead>Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {recipes.map((recipe) => {
+              // Find category name
+              const category = menuCategories.find(c => c.id === recipe.category)?.name || recipe.category;
+              
+              // Find menu item name
+              const menuItem = menuItems.find(mi => mi.id === recipe.menuItemId)?.name || recipe.menuItemId;
+
+              return (
+                <TableRow key={recipe.id}>
+                  <TableCell>{recipe.name}</TableCell>
+                  <TableCell>{category}</TableCell>
+                  <TableCell>{recipe.description || '-'}</TableCell>
+                  <TableCell>
+                 <TableCell>
+  <ul className="list-disc list-inside">
+    {recipe.ingredients.map((ingredient, idx) => {
+      const item = items.find(i => i.id === ingredient.inventoryItemId);
+      return (
+        <li key={idx}>
+          {item?.name || 'Unknown Item'}: {ingredient.quantity} {ingredient.unit}
+        </li>
+      );
+    })}
+  </ul>
+</TableCell>
+                  </TableCell>
+                  <TableCell>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" className="h-8 w-8 p-0">
+                          <span className="sr-only">Open menu</span>
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem onClick={() => {
+                          recipeForm.reset({
+                            id: recipe.id,
+                            name: recipe.name,
+                            description: recipe.description,
+                            category: recipe.category,
+                            menuItemId: recipe.menuItemId,
+                            ingredients: recipe.ingredients.map(ing => ({
+                              inventoryItemId: ing.inventoryItemId,
+                              quantity: ing.quantity,
+                              unit: ing.unit
+                            })),
+                          });
+                          setIsRecipeFormOpen(true);
+                        }}>
+                          Edit
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-red-600"
+                          onClick={() => handleDeleteRecipe(recipe.id)}
+                        >
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </TableCell>
+                </TableRow>
+              );
+            })}
+          </TableBody>
+        </Table>
+      )}
+    </CardContent>
+  </Card>
+</TabsContent>
       </Tabs>
 
       {/* Dialogs */}

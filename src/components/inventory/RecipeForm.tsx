@@ -1,16 +1,17 @@
 "use client"
+import { useEffect } from "react";
 import {
   FieldArrayWithId,
   UseFieldArrayAppend,
   UseFieldArrayRemove,
   UseFormReturn,
-} from "react-hook-form"
+} from "react-hook-form";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-} from "../../../components/ui/dialog"
+} from "../../../components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -18,20 +19,20 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "../../../components/ui/form"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
+} from "../../../components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "../../../components/ui/select"
-import { Textarea } from "../../../components/ui/textarea"
-import { InventoryItem, MenuItem, MenuCategory } from "@/types/entities"
-import * as z from "zod"
-import { Trash2 } from "lucide-react"
+} from "../../../components/ui/select";
+import { Textarea } from "../../../components/ui/textarea";
+import { InventoryItem, MenuItem, MenuCategory } from "@/types/entities";
+import * as z from "zod";
+import { Trash2 } from "lucide-react";
 
 const recipeFormSchema = z.object({
   id: z.string().optional(),
@@ -50,19 +51,19 @@ const recipeFormSchema = z.object({
   yieldUnit: z.string().optional(),
 });
 
-type RecipeFormValues = z.infer<typeof recipeFormSchema>
+type RecipeFormValues = z.infer<typeof recipeFormSchema>;
 
 interface RecipeFormProps {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  menuItems: MenuItem[]
-  menuCategories: MenuCategory[]
-  form: UseFormReturn<RecipeFormValues>
-  fields: FieldArrayWithId<RecipeFormValues, "ingredients", "id">[]
-  append: UseFieldArrayAppend<RecipeFormValues, "ingredients">
-  remove: UseFieldArrayRemove
-  inventoryItems: InventoryItem[]
-  onSubmit: (data: RecipeFormValues) => void
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  menuItems: MenuItem[];
+  menuCategories: MenuCategory[];
+  form: UseFormReturn<RecipeFormValues>;
+  fields: FieldArrayWithId<RecipeFormValues, "ingredients", "id">[];
+  append: UseFieldArrayAppend<RecipeFormValues, "ingredients">;
+  remove: UseFieldArrayRemove;
+  inventoryItems: InventoryItem[];
+  onSubmit: (data: RecipeFormValues) => void;
 }
 
 export function RecipeForm({
@@ -77,58 +78,97 @@ export function RecipeForm({
   inventoryItems,
   onSubmit,
 }: RecipeFormProps) {
-  const handleSubmit = (data: RecipeFormValues) => {
-    console.log("Recipe form submitted:", data)
-    onSubmit(data)
-  }
+  // Normalize data to handle both _id and id fields consistently
+  const normalizedMenuItems = menuItems.map(item => ({
+    ...item,
+    id: item._id || item.id,
+  }));
+
+  const normalizedMenuCategories = menuCategories.map(cat => ({
+    ...cat,
+    id: cat._id || cat.id,
+  }));
+
+  const normalizedInventoryItems = inventoryItems.map(item => ({
+    ...item,
+    id: item.id || item.id,
+  }));
 
   // Group menu items by category
-  const menuItemsByCategory = menuCategories.map(category => ({
+  const menuItemsByCategory = normalizedMenuCategories.map(category => ({
     ...category,
-    items: menuItems.filter(item => item.category_id === category._id || item.category_id === category.id)
-  })).filter(category => category.items.length > 0)
+    items: normalizedMenuItems.filter(item => item.category_id === category.id)
+  })).filter(category => category.items.length > 0);
 
-  // When an inventory item is selected, update the corresponding unit
+  // Reset form when opening
+  useEffect(() => {
+    if (open) {
+      form.reset({
+        menuItemId: "",
+        category: "",
+        name: "",
+        description: "",
+        ingredients: [{
+          inventoryItemId: "",
+          quantity: 1,
+          unit: ""
+        }],
+        yieldQuantity: undefined,
+        yieldUnit: "",
+      });
+    }
+  }, [open, form]);
+
+  const handleSubmit = (data: RecipeFormValues) => {
+    onSubmit(data);
+  };
+
   const handleInventoryItemChange = (index: number, inventoryItemId: string) => {
-    const selectedItem = inventoryItems.find(item => item.id === inventoryItemId)
+    const selectedItem = normalizedInventoryItems.find(item => item.id === inventoryItemId);
     if (selectedItem) {
-      form.setValue(`ingredients.${index}.unit`, selectedItem.unit)
+      form.setValue(`ingredients.${index}.unit`, selectedItem.unit);
     }
-  }
+  };
 
-  // When menu item is selected, update the recipe name
   const handleMenuItemChange = (menuItemId: string) => {
-    const selectedMenuItem = menuItems.find(item => item.id === menuItemId)
+    const selectedMenuItem = normalizedMenuItems.find(item => item.id === menuItemId);
     if (selectedMenuItem) {
-      form.setValue('name', selectedMenuItem.name)
-      form.setValue('menuItemId', menuItemId)
+      form.setValue("menuItemId", selectedMenuItem.id);
+      form.setValue("name", selectedMenuItem.name);
+      form.setValue("description", selectedMenuItem.description || "");
     }
-  }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Recipe</DialogTitle>
+          <DialogTitle>{form.getValues("id") ? "Edit" : "Add New"} Recipe</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
-            {/* Menu Item Category Select */}
+            {/* Category Selection */}
             <FormField
               control={form.control}
               name="category"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Menu Category*</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value}>
+                  <Select
+                    onValueChange={(value) => {
+                      field.onChange(value);
+                      form.setValue("menuItemId", "");
+                    }}
+                    value={field.value}
+                  >
                     <FormControl>
                       <SelectTrigger>
                         <SelectValue placeholder="Select a category" />
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {menuCategories.map((category) => (
-                        <SelectItem key={category._id || category.id} value={category._id || category.id}>
+                      {normalizedMenuCategories.map((category) => (
+                        <SelectItem key={category.id} value={category.id}>
                           {category.name}
                         </SelectItem>
                       ))}
@@ -139,43 +179,49 @@ export function RecipeForm({
               )}
             />
 
-            {/* Menu Item Select - filtered by selected category */}
+            {/* Menu Item Selection */}
             <FormField
               control={form.control}
               name="menuItemId"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Menu Item*</FormLabel>
-                  <Select 
-                    onValueChange={(value) => {
-                      field.onChange(value)
-                      handleMenuItemChange(value)
-                    }}
-                    value={field.value}
-                    disabled={!form.watch("category")}
-                  >
-                    <FormControl>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select menu item" />
-                      </SelectTrigger>
-                    </FormControl>
-               <SelectContent>
-  {menuItemsByCategory
-    .find(cat => (cat._id || cat.id) === form.watch("category"))
-    ?.items.map((item) => (
-      <SelectItem key={item.id} value={item.id}>
-        {item.name}
-      </SelectItem>
-    )) || (
-    <SelectItem value="__select_category_first__" disabled>
-      Select a category first
-    </SelectItem>
-  )}
-</SelectContent>
-                  </Select>
-                  <FormMessage />
-                </FormItem>
-              )}
+              render={({ field }) => {
+                const currentCategoryItems = menuItemsByCategory.find(
+                  cat => cat.id === form.watch("category")
+                )?.items || [];
+
+                return (
+                  <FormItem>
+                    <FormLabel>Menu Item*</FormLabel>
+                    <Select
+                      onValueChange={(value) => {
+                        field.onChange(value);
+                        handleMenuItemChange(value);
+                      }}
+                      value={field.value}
+                      disabled={!form.watch("category") || currentCategoryItems.length === 0}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder={
+                            !form.watch("category") 
+                              ? "Select a category first" 
+                              : currentCategoryItems.length === 0 
+                                ? "No items in this category" 
+                                : "Select menu item"
+                          } />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {currentCategoryItems.map((item) => (
+                          <SelectItem key={item.id} value={item.id}>
+                            {item.name} (${item.price?.toFixed(2)})
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
 
             {/* Recipe Name */}
@@ -208,7 +254,7 @@ export function RecipeForm({
               )}
             />
 
-            {/* Ingredients */}
+            {/* Ingredients Section */}
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="font-medium">Ingredients*</h3>
@@ -216,20 +262,20 @@ export function RecipeForm({
                   type="button"
                   variant="outline"
                   size="sm"
-                  onClick={() =>
-                    append({ 
-                      inventoryItemId: "", 
-                      quantity: 1, 
-                      unit: "" 
-                    })
-                  }
+                  onClick={() => append({ 
+                    inventoryItemId: "", 
+                    quantity: 1, 
+                    unit: "" 
+                  })}
                 >
                   Add Ingredient
                 </Button>
               </div>
 
               {fields.length === 0 && (
-                <p className="text-sm text-muted-foreground">No ingredients added yet. Click "Add Ingredient" to start.</p>
+                <p className="text-sm text-muted-foreground">
+                  No ingredients added yet. Click "Add Ingredient" to start.
+                </p>
               )}
 
               {fields.map((field, index) => (
@@ -244,8 +290,8 @@ export function RecipeForm({
                           <FormLabel>Ingredient</FormLabel>
                           <Select 
                             onValueChange={(value) => {
-                              field.onChange(value)
-                              handleInventoryItemChange(index, value)
+                              field.onChange(value);
+                              handleInventoryItemChange(index, value);
                             }} 
                             value={field.value}
                           >
@@ -255,7 +301,7 @@ export function RecipeForm({
                               </SelectTrigger>
                             </FormControl>
                             <SelectContent>
-                              {inventoryItems.map((item) => (
+                              {normalizedInventoryItems.map((item) => (
                                 <SelectItem key={item.id} value={item.id}>
                                   {item.name} ({item.unit})
                                 </SelectItem>
@@ -282,7 +328,7 @@ export function RecipeForm({
                               min="0.01"
                               step="0.01"
                               placeholder="0.00"
-                              {...field}
+                              value={field.value}
                               onChange={(e) =>
                                 field.onChange(parseFloat(e.target.value) || 0)
                               }
@@ -294,7 +340,7 @@ export function RecipeForm({
                     />
                   </div>
 
-                  {/* Unit (read-only) */}
+                  {/* Unit */}
                   <div className="col-span-3">
                     <FormField
                       control={form.control}
@@ -346,9 +392,9 @@ export function RecipeForm({
                         min="0.01"
                         step="0.01"
                         placeholder="0.00"
-                        {...field}
+                        value={field.value || ""}
                         onChange={(e) =>
-                          field.onChange(parseFloat(e.target.value) || undefined)
+                          field.onChange(e.target.value ? parseFloat(e.target.value) : undefined)
                         }
                       />
                     </FormControl>
@@ -375,6 +421,7 @@ export function RecipeForm({
               />
             </div>
 
+            {/* Form Actions */}
             <div className="flex justify-end gap-2 pt-4">
               <Button
                 type="button"
@@ -383,11 +430,13 @@ export function RecipeForm({
               >
                 Cancel
               </Button>
-              <Button type="submit">Add Recipe</Button>
+              <Button type="submit">
+                {form.getValues("id") ? "Update" : "Add"} Recipe
+              </Button>
             </div>
           </form>
         </Form>
       </DialogContent>
     </Dialog>
-  )
+  );
 }

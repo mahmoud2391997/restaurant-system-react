@@ -115,6 +115,7 @@ export interface Table {
   status: 'available' | 'occupied' | 'reserved';
 }
 export interface  MenuItem {
+  _id:string
   id: string;
   name: string;
   description?: string;
