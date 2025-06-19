@@ -80,7 +80,7 @@ export const fetchMenuItems = createAsyncThunk(
   async (params: any, { rejectWithValue }) => {
     try {
       const queryString = new URLSearchParams(params).toString();
-      const response = await get<PaginatedResponse<MenuItem>>(`${SERVER_URL}/menu/items?${queryString}`);
+      const response = await get<PaginatedResponse<MenuItem>>(`${SERVER_URL}/api/menu/items?${queryString}`);
       return response;
     } catch (error) {
       return rejectWithValue((error as Error).message);
